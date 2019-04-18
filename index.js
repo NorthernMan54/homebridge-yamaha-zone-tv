@@ -40,17 +40,10 @@ function YamahaAVRPlatform(log, config, api) {
   this.api = api;
 
   this.zone = config["zone"] || "Main";
-  this.playVolume = config["play_volume"];
   this.minVolume = config["min_volume"] || -80.0;
   this.maxVolume = config["max_volume"] || 20.0;
   this.gapVolume = this.maxVolume - this.minVolume;
-  this.setMainInputTo = config["setMainInputTo"];
   this.discoveryTimeout = config["discovery_timeout"] || 10;
-  this.manualAddresses = config["manual_addresses"] || {};
-  // this.spotifyControls = config["spotify"] || false;
-  this.nozones = config["nozones"] || false;
-
-  this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
@@ -67,35 +60,21 @@ YamahaAVRPlatform.prototype.didFinishLaunching = function() {
     type: 'http'
   }, setupFromService.bind(this));
 
-  var timer = 0;
+  var timer;
   var timeElapsed = 0;
   var checkCyclePeriod = 5000;
-
-  // process manually specified devices...
-  for (var key in this.manualAddresses) {
-    if (!this.manualAddresses.hasOwnProperty(key)) continue;
-    debug("THIS-0", this);
-    setupFromService.call(this, {
-      name: key,
-      host: this.manualAddresses[key],
-      port: 80
-    });
-  }
 
   // The callback can only be called once...so we'll have to find as many as we can
   // in a fixed time and then call them in.
   var timeoutFunction = function() {
-    if (accessories.length >= that.expectedDevices) {
-      clearTimeout(timer);
+    timeElapsed += checkCyclePeriod;
+    if (timeElapsed > that.discoveryTimeout * 1000) {
+      that.log("Waited " + that.discoveryTimeout + " seconds, stopping discovery.");
     } else {
-      timeElapsed += checkCyclePeriod;
-      if (timeElapsed > that.discoveryTimeout * 1000) {
-        that.log("Waited " + that.discoveryTimeout + " seconds, stopping discovery.");
-      } else {
-        timer = setTimeout(timeoutFunction, checkCyclePeriod);
-        return;
-      }
+      timer = setTimeout(timeoutFunction, checkCyclePeriod);
+      return;
     }
+
     browser.stop();
     that.log("Discovery finished, found " + accessories.length + " Yamaha AVR devices.");
     that.api.publishExternalAccessories("yamaha-zone-tv", accessories);
@@ -116,8 +95,6 @@ function setupFromService(service) {
   }
 
   var name = service.name;
-  // console.log('Found HTTP service "' + name + '"');
-  // We can't tell just from mdns if this is an AVR...
   if (service.port !== 80) return; // yamaha-nodejs assumes this, so finding one on another port wouldn't do any good anyway.
   var yamaha = new Yamaha(service.host);
   yamaha.getSystemConfig().then(
@@ -135,10 +112,7 @@ function setupFromService(service) {
 
         yamaha.getAvailableZones().then(
           function(zones) {
-            // Only add zones control if more than 1 zone
-            // Hack to always create a zone control
-            // TODO: Remove if block
-            if (zones.length > 0 && !this.nozones) {
+            if (zones.length > 0) {
               for (var zone in zones) {
                 yamaha.getBasicInfo(zones[zone]).then(function(basicInfo) {
                   if (basicInfo.getVolume() !== -999) {
@@ -150,14 +124,12 @@ function setupFromService(service) {
                         } else {
                           var zoneName = "Main_Zone";
                         }
-                        if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
-                          this.log("Adding TV Control for", zoneName);
-                          var uuid = UUIDGen.generate(zoneName + "Y");
-                          var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
-                          var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name);
-                          accessory.getServices();
-                          accessories.push(zoneAccessory);
-                        }
+                        this.log("Adding TV Control for", zoneName);
+                        var uuid = UUIDGen.generate(zoneName + "Y");
+                        var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
+                        var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name);
+                        accessory.getServices();
+                        accessories.push(zoneAccessory);
                       }.bind(this)
                     );
                   }
@@ -199,19 +171,16 @@ YamahaZone.prototype = {
 
     if (playing) {
       return yamaha.powerOn(that.zone).then(function() {
-        if (that.playVolume) return yamaha.setVolumeTo(that.playVolume * 10, that.zone);
-        else return Q();
-      }).then(function() {
-        if (that.setMainInputTo) return yamaha.setMainInputTo(that.setMainInputTo);
-        else return Q();
-      }).then(function() {
-        if (that.setMainInputTo === "AirPlay") {
-          return yamaha.SendXMLToReceiver(
-            '<YAMAHA_AV cmd="PUT"><AirPlay><Play_Control><Playback>Play</Playback></Play_Control></AirPlay></YAMAHA_AV>'
-          );
-        } else {
-          return Q();
-        }
+        yamaha.getBasicInfo().then(function(basicInfo) {
+          if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
+            var input = basicInfo.getCurrentInput();
+            return yamaha.SendXMLToReceiver(
+              '<YAMAHA_AV cmd="PUT"><' + input + '><Play_Control><Playback>Play</Playback></Play_Control></' + input + '></YAMAHA_AV>'
+            );
+          } else {
+            return Q();
+          }
+        });
       });
     } else {
       return yamaha.powerOff(that.zone);
@@ -413,8 +382,13 @@ YamahaZone.prototype = {
         var option = util.mapKeyToControl(newValue);
         if (option) {
           debug("command", that.zone, newValue, option, this.pausePlay);
-          yamaha.SendXMLToReceiver('<YAMAHA_AV cmd="PUT"><Spotify><Play_Control><Playback>' + option + '</Playback></Play_Control></Spotify></YAMAHA_AV>').then(function(status) {
-            debug("Status", that.zone, status);
+          yamaha.getBasicInfo().then(function(basicInfo) {
+            if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
+              var input = basicInfo.getCurrentInput();
+              yamaha.SendXMLToReceiver(
+                '<YAMAHA_AV cmd="PUT"><' + input + '><Play_Control><Playback>' + option + '</Playback></Play_Control></' + input + '></YAMAHA_AV>'
+              );
+            }
           });
         }
         callback(null);
