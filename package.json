@@ -1,0 +1,40 @@
+{
+  "name": "homebridge-yamaha-zone-tv",
+  "version": "0.1.6",
+  "description": "homebridge-plugin for Yamaha AVR https://github.com/nfarina/homebridge",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NorthernMan54/homebridge-yamaha-zone-tv.git"
+  },
+  "preferGlobal": true,
+  "keywords": [
+    "homebridge-plugin",
+    "YamahaAVR",
+    "Yamaha"
+  ],
+  "engines": {
+    "node": ">=9.3.0",
+    "homebridge": ">=0.4.48"
+  },
+  "dependencies": {
+    "bonjour": "^=3.5.0",
+    "core-util-is": "^1.0.1",
+    "debug": "^2.2.0",
+    "inherits": "^2.0.1",
+    "ip": "^=1.1.5",
+    "q": "1.4.x",
+    "request": "2.85.x",
+    "util": "^0.10.x",
+    "yamaha-nodejs": ">=0.9.0"
+  },
+  "author": "NorthernMan54",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NorthernMan54/homebridge-yamaha-zone-tv/issues"
+  },
+  "homepage": "https://github.com/NorthernMan54/homebridge-yamaha-zone-tv#readme"
+}
