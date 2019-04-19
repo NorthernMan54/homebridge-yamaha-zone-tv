@@ -210,6 +210,7 @@ YamahaZone.prototype = {
         .on('get', function(callback, context) {
           yamaha.isOn().then(
             function(result) {
+              debug("Main Power", result);
               callback(null, result);
             },
             function(error) {
@@ -232,8 +233,9 @@ YamahaZone.prototype = {
       partySwitch
         .getCharacteristic(Characteristic.On)
         .on('get', function(callback) {
-          debug("getPartySwitch", that.zone);
+
           this.yamaha.isPartyModeEnabled().then(function(result) {
+            debug("getPartySwitch", that.zone, result);
             callback(null, result);
           });
         }.bind(this))
@@ -321,12 +323,13 @@ YamahaZone.prototype = {
     zoneService.setCharacteristic(Characteristic.ConfiguredName, this.name);
     zoneService.getCharacteristic(Characteristic.Active)
       .on('get', function(callback, context) {
-        debug("getActive", that.zone);
         yamaha.isOn(that.zone).then(
           function(result) {
+            debug("getActive", that.zone, result);
             callback(null, result);
           },
           function(error) {
+            debug("getActive - error", that.zone, error);
             callback(error, false);
           }
         );
@@ -340,12 +343,13 @@ YamahaZone.prototype = {
         });
       }.bind(this));
 
-    // zoneService.setCharacteristic(Characteristic.ActiveIdentifier, 1);
+    // Populate ActiveIdentifier with current input selection
 
     yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
-      debug('YamahaSwitch Is On', basicInfo.isOn()); // True
-      debug('YamahaSwitch Input', basicInfo.getCurrentInput());
+      debug('YamahaSwitch Is On', that.zone, basicInfo.isOn()); // True
+      debug('YamahaSwitch Input', that.zone, basicInfo.getCurrentInput());
       zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(util.Inputs.find(function(input) {
+        debug("ActiveIdentifier", that.zone, input.ConfiguredName, basicInfo.getCurrentInput(), input);
         return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
       }).Identifier);
     });
@@ -432,6 +436,8 @@ YamahaZone.prototype = {
 
     this.accessory.addService(zoneService);
 
+    // Create an InputSource for each available input
+
     util.Inputs.forEach(function(input) {
       // debug("Adding input", this.name, input.ConfiguredName);
       var inputService = new Service.InputSource(input.ConfiguredName, UUIDGen.generate(this.name + input.ConfiguredName), input.ConfiguredName);
@@ -447,6 +453,10 @@ YamahaZone.prototype = {
           inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(newValue);
           callback(null);
         });
+
+      // default inputs to not visible
+      inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
+      inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
 
       zoneService.addLinkedService(inputService);
       this.accessory.addService(inputService);
