@@ -171,7 +171,7 @@ YamahaZone.prototype = {
 
     if (playing) {
       return yamaha.powerOn(that.zone).then(function() {
-        yamaha.getBasicInfo().then(function(basicInfo) {
+        yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
           if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
             var input = basicInfo.getCurrentInput();
             return yamaha.SendXMLToReceiver(
@@ -276,7 +276,7 @@ YamahaZone.prototype = {
               .getCharacteristic(Characteristic.On)
               .on('get', function(callback, context) {
                 // debug("getPreset", this);
-                yamaha.getBasicInfo().then(function(basicInfo) {
+                yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
                   // debug('YamahaSwitch Is On', basicInfo.isOn()); // True
                   // debug('YamahaSwitch Input', basicInfo.getCurrentInput()); // Tuner
 
@@ -386,13 +386,26 @@ YamahaZone.prototype = {
         var option = util.mapKeyToControl(newValue);
         if (option) {
           debug("command", that.zone, newValue, option, this.pausePlay);
-          yamaha.getBasicInfo().then(function(basicInfo) {
+          yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
             if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
               var input = basicInfo.getCurrentInput();
               yamaha.SendXMLToReceiver(
                 '<YAMAHA_AV cmd="PUT"><' + input + '><Play_Control><Playback>' + option + '</Playback></Play_Control></' + input + '></YAMAHA_AV>'
               );
             }
+            else // For non Spotify or Airplay sources perform Mute
+            {
+              if (basicInfo.isMuted(that.zone))
+              {
+                    debug("Mute Off: ", that.zone);
+                    yamaha.muteOff(that.zone)
+              }
+              else
+              {
+                  debug("Mute On : ", that.zone);
+                  yamaha.muteOn (that.zone)
+              }
+            } // end Mute functionality for non Spotiry or Airplay sources
           });
         }
         callback(null);
@@ -439,28 +452,32 @@ YamahaZone.prototype = {
     // Create an InputSource for each available input
 
     util.Inputs.forEach(function(input) {
-      // debug("Adding input", this.name, input.ConfiguredName);
-      var inputService = new Service.InputSource(input.ConfiguredName, UUIDGen.generate(this.name + input.ConfiguredName), input.ConfiguredName);
+      // Don't add Main Zone Sync for the Main zone
+      if (this.zone !== "Main_Zone"||input.ConfiguredName!="Main Zone Sync") {
 
-      inputService
-        .setCharacteristic(Characteristic.Identifier, input.Identifier)
-        .setCharacteristic(Characteristic.ConfiguredName, input.ConfiguredName)
-        .setCharacteristic(Characteristic.IsConfigured, Characteristic.IsConfigured.CONFIGURED)
-        .setCharacteristic(Characteristic.InputSourceType, input.InputSourceType)
-        .getCharacteristic(Characteristic.TargetVisibilityState)
-        .on('set', function(newValue, callback) {
-          debug("setTargetVisibilityState => setNewValue: ", that.zone, newValue);
-          inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(newValue);
-          callback(null);
-        });
+        // debug("Adding input", this.name, input.ConfiguredName);
+        var inputService = new Service.InputSource(input.ConfiguredName, UUIDGen.generate(this.name + input.ConfiguredName), input.ConfiguredName);
 
-      // default inputs to not visible
-      inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
-      inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
+        inputService
+          .setCharacteristic(Characteristic.Identifier, input.Identifier)
+          .setCharacteristic(Characteristic.ConfiguredName, input.ConfiguredName)
+          .setCharacteristic(Characteristic.IsConfigured, Characteristic.IsConfigured.CONFIGURED)
+          .setCharacteristic(Characteristic.InputSourceType, input.InputSourceType)
+          .getCharacteristic(Characteristic.TargetVisibilityState)
+          .on('set', function(newValue, callback) {
+            debug("setTargetVisibilityState => setNewValue: ", that.zone, newValue);
+            inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(newValue);
+            callback(null);
+          });
 
-      zoneService.addLinkedService(inputService);
-      this.accessory.addService(inputService);
-      // debug(JSON.stringify(inputService, null, 2));
+        // default inputs to not visible
+        inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
+        inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
+
+        zoneService.addLinkedService(inputService);
+        this.accessory.addService(inputService);
+        // debug(JSON.stringify(inputService, null, 2));
+      }
     }.bind(this));
 
     var speakerService = new Service.TelevisionSpeaker(this.name);
