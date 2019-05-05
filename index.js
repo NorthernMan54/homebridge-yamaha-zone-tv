@@ -171,7 +171,7 @@ YamahaZone.prototype = {
 
     if (playing) {
       return yamaha.powerOn(that.zone).then(function() {
-        yamaha.getBasicInfo().then(function(basicInfo) {
+        yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
           if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
             var input = basicInfo.getCurrentInput();
             return yamaha.SendXMLToReceiver(
@@ -276,7 +276,7 @@ YamahaZone.prototype = {
               .getCharacteristic(Characteristic.On)
               .on('get', function(callback, context) {
                 // debug("getPreset", this);
-                yamaha.getBasicInfo().then(function(basicInfo) {
+                yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
                   // debug('YamahaSwitch Is On', basicInfo.isOn()); // True
                   // debug('YamahaSwitch Input', basicInfo.getCurrentInput()); // Tuner
 
@@ -386,13 +386,26 @@ YamahaZone.prototype = {
         var option = util.mapKeyToControl(newValue);
         if (option) {
           debug("command", that.zone, newValue, option, this.pausePlay);
-          yamaha.getBasicInfo().then(function(basicInfo) {
+          yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
             if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
               var input = basicInfo.getCurrentInput();
               yamaha.SendXMLToReceiver(
                 '<YAMAHA_AV cmd="PUT"><' + input + '><Play_Control><Playback>' + option + '</Playback></Play_Control></' + input + '></YAMAHA_AV>'
               );
             }
+            else // For non Spotify or Airplay sources perform Mute
+            {
+              if (basicInfo.isMuted(that.zone))
+              {
+                    debug("Mute Off: ", that.zone);
+                    yamaha.muteOff(that.zone)
+              }
+              else
+              {
+                  debug("Mute On : ", that.zone);
+                  yamaha.muteOn (that.zone)
+              }
+            } // end Mute functionality for non Spotiry or Airplay sources
           });
         }
         callback(null);
