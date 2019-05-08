@@ -24,6 +24,7 @@ var bonjour = require('bonjour')();
 var ip = require('ip');
 var sysIds = {};
 var accessories = [];
+var inputs = []; // used to retrieve available inputs for the detected receiver
 
 module.exports = function(homebridge) {
   Accessory = homebridge.platformAccessory;
@@ -97,6 +98,7 @@ function setupFromService(service) {
   var name = service.name;
   if (service.port !== 80) return; // yamaha-nodejs assumes this, so finding one on another port wouldn't do any good anyway.
   var yamaha = new Yamaha(service.host);
+
   yamaha.getSystemConfig().then(
     function(sysConfig) {
       // debug(JSON.stringify(sysConfig, null, 2));
@@ -109,6 +111,53 @@ function setupFromService(service) {
         }
         sysIds[sysId] = true;
         this.log("Found Yamaha " + sysModel + " - " + sysId + ", \"" + name + "\"");
+
+        // add discovery of inputs here
+
+        var inputsXML = sysConfig.YAMAHA_AV.System[0].Config[0].Name[0].Input[0];
+        var id=0
+        for (var prop in inputsXML) { // iterate through all inputs
+          var input = {};
+          // some of the names returned are not in sync with the names used for setting the input, so they are converted to match
+          if (prop=='V_AUX') 
+            input.ConfiguredName = "V-AUX";
+          else // None of the inputs use an _ in setting the input, so removing _ from the input names
+            input.ConfiguredName = prop.replace ("_","");
+          input.ConfiguredTitle = inputsXML[prop][0];
+          input.Identifier  = id;
+          input.InputDeviceType = 0;
+          input.InputSourceType = 0;
+          inputs.push(input);
+          id++;
+        }
+        // manually add Main Zone Sync as the receiver XML does not have any info on this
+        inputs.push({
+         ConfiguredName: 'Main Zone Sync',
+         ConfiguredTitle : 'Main Zone Sync',
+         Identifier: [ id++ ],
+         InputDeviceType : [ 0 ],
+         InputSourceType : [ 0 ]
+        });
+
+        // iterate through the feature list of the amp to add more inputs
+        var zonesXML = sysConfig.YAMAHA_AV.System[0].Config[0].Feature_Existence[0];
+        for (var prop in zonesXML) {
+            // Only return inputs that the receiver supports, skip Zone entries and USB since it's already in the input list
+            if (!(prop.includes('one')) && !(prop.includes('USB'))&& zonesXML[prop].includes('1')) {
+               var input = {};
+
+               // Convert tuner and net radio to make them work
+               if (prop=='Tuner') prop = "TUNER";
+               if (prop=='NET_RADIO') prop = "NET RADIO";
+               input.ConfiguredName = prop;
+               input.ConfiguredTitle = prop;
+               input.Identifier  = id;
+               input.InputDeviceType = 0;
+               input.InputSourceType = 10; // App
+               inputs.push(input);
+               id++;
+            }
+        }
 
         yamaha.getAvailableZones().then(
           function(zones) {
@@ -134,10 +183,13 @@ function setupFromService(service) {
                     );
                   }
                 }.bind(this));
+
               }
             }
           }.bind(this)
         );
+
+
       }
     }.bind(this),
     function(error) {
@@ -164,7 +216,7 @@ function YamahaZone(log, config, name, yamaha, sysConfig, zone, accessory, unitN
 }
 
 YamahaZone.prototype = {
-
+ 
   setPlaying: function(playing) {
     var that = this;
     var yamaha = this.yamaha;
@@ -348,10 +400,13 @@ YamahaZone.prototype = {
     yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
       debug('YamahaSwitch Is On', that.zone, basicInfo.isOn()); // True
       debug('YamahaSwitch Input', that.zone, basicInfo.getCurrentInput());
-      zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(util.Inputs.find(function(input) {
-        debug("ActiveIdentifier", that.zone, input.ConfiguredName, basicInfo.getCurrentInput(), input);
+
+      // Set identifier for active input
+
+      zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(inputs.find(function(input) {
         return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
       }).Identifier);
+
     });
 
     zoneService
@@ -360,7 +415,7 @@ YamahaZone.prototype = {
         // debug("getActiveIdentifier", that.zone);
         yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
           debug("getActiveIdentifier Input", that.zone, basicInfo.getCurrentInput());
-          callback(null, util.Inputs.find(function(input) {
+          callback(null, inputs.find(function(input) {
             return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
           }).Identifier);
         });
@@ -368,8 +423,8 @@ YamahaZone.prototype = {
       })
       .on('set', function(newValue, callback) {
         debug("setActiveIdentifier => setNewValue: ", that.zone, newValue);
-        yamaha.setInputTo(util.Inputs.find(function(input) {
-          // debug("find %s === %s", input.Identifier, newValue);
+        yamaha.setInputTo(inputs.find(function(input) {
+           debug("find %s === %s", input.Identifier, newValue);
           return (input.Identifier === newValue ? input : false);
         }).ConfiguredName, that.zone).then(function(a, b) {
           debug("setActiveIdentifier", that.zone, a, b);
@@ -394,6 +449,7 @@ YamahaZone.prototype = {
               );
             }
             else // For non Spotify or Airplay sources perform Mute
+            if (newValue==Characteristic.RemoteKey.PLAY_PAUSE)
             {
               if (basicInfo.isMuted(that.zone))
               {
@@ -449,30 +505,31 @@ YamahaZone.prototype = {
 
     this.accessory.addService(zoneService);
 
-    // Create an InputSource for each available input
-
-    util.Inputs.forEach(function(input) {
+    inputs.forEach(function(input) {
       // Don't add Main Zone Sync for the Main zone
       if (this.zone !== "Main_Zone"||input.ConfiguredName!="Main Zone Sync") {
-
-        // debug("Adding input", this.name, input.ConfiguredName);
+        debug("Adding input", input.ConfiguredName, "for zone", this.name);
         var inputService = new Service.InputSource(input.ConfiguredName, UUIDGen.generate(this.name + input.ConfiguredName), input.ConfiguredName);
 
-        inputService
-          .setCharacteristic(Characteristic.Identifier, input.Identifier)
-          .setCharacteristic(Characteristic.ConfiguredName, input.ConfiguredName)
-          .setCharacteristic(Characteristic.IsConfigured, Characteristic.IsConfigured.CONFIGURED)
-          .setCharacteristic(Characteristic.InputSourceType, input.InputSourceType)
-          .getCharacteristic(Characteristic.TargetVisibilityState)
-          .on('set', function(newValue, callback) {
-            debug("setTargetVisibilityState => setNewValue: ", that.zone, newValue);
-            inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(newValue);
-            callback(null);
-          });
+      inputService
+        .setCharacteristic(Characteristic.Identifier, input.Identifier)
+        .setCharacteristic(Characteristic.ConfiguredName, input.ConfiguredTitle) // Use title instead of name
+        .setCharacteristic(Characteristic.IsConfigured, Characteristic.IsConfigured.CONFIGURED)
+        .setCharacteristic(Characteristic.InputSourceType, input.InputSourceType)
+        .getCharacteristic(Characteristic.TargetVisibilityState)
+        .on('set', function(newValue, callback) {
+          debug("setTargetVisibilityState => setNewValue: ", that.zone, newValue);
+          inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(newValue);
+          callback(null);
+        });
 
-        // default inputs to not visible
-        inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
-        inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
+        // if sourcetype = App or the Title is different than name (custom name is created) make input visible by default
+        if (input.InputSourceType!=10 /* App */ && (input.ConfiguredName==input.ConfiguredTitle&&input.ConfiguredName!='Main Zone Sync'))
+        {
+          debug ("Making input", input.ConfiguredTitle, "invisible");
+          inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
+          inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
+        }
 
         zoneService.addLinkedService(inputService);
         this.accessory.addService(inputService);
