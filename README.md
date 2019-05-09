@@ -6,6 +6,8 @@ Homebridge plugin for multi-zone Yamaha Receivers like the RX-V1075 that creates
 
 The Yamaha AVR will display as a TV Accessory with Power, Input, Volume & Remote Control.
 
+The plugin will detect inputs automatically by querying the receiver. Note that inputs with a custom name and all network applications will be visible by default. If other inputs are desired to be visible this needs to be changed in the Home app.
+
 # Installation
 
 Follow the instruction in [NPM](https://www.npmjs.com/package/homebridge) for the homebridge server installation. The plugin is published through [NPM](https://www.npmjs.com/package/homebridge-yamaha-zone-tv) and should be installed "globally" by typing:
@@ -73,3 +75,4 @@ Example config.json:
 
 -   neonightmare - Creating the original plugin
 -   TommyCardello - Adding Party Mode Switch, Adding Input or Scene Switches.
+-   Abko - Added automatic detection of inputs. Tested on RX-A3060
