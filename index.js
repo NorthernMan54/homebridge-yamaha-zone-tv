@@ -452,6 +452,7 @@ YamahaZone.prototype = {
             }
             else // For non Spotify or Airplay sources perform Mute
             if (newValue==Characteristic.RemoteKey.PLAY_PAUSE)
+
             {
               if (basicInfo.isMuted(that.zone))
               {
