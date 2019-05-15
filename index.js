@@ -45,6 +45,7 @@ function YamahaAVRPlatform(log, config, api) {
   this.maxVolume = config["max_volume"] || 20.0;
   this.gapVolume = this.maxVolume - this.minVolume;
   this.discoveryTimeout = config["discovery_timeout"] || 10;
+  this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
@@ -175,12 +176,14 @@ function setupFromService(service) {
                         } else {
                           var zoneName = "Main_Zone";
                         }
-                        this.log("Adding TV Control for", zoneName);
-                        var uuid = UUIDGen.generate(zoneName + "Y");
-                        var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
-                        var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name);
-                        accessory.getServices();
-                        accessories.push(zoneAccessory);
+                        if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
+                          this.log("Adding TV Control for", zoneName);
+                          var uuid = UUIDGen.generate(zoneName + "Y");
+                          var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
+                          var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name);
+                          accessory.getServices();
+                          accessories.push(zoneAccessory);
+                        }
                       }.bind(this)
                     );
                   }
