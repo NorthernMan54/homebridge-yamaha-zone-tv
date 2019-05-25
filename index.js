@@ -129,8 +129,14 @@ function setupFromService(service) {
           input.Identifier = id;
           input.InputDeviceType = 0;
           input.InputSourceType = 0;
-          inputs.push(input);
-          id++;
+          if(!inputs.find(function(element) { // only insert if it does not already exist
+             return element.configuredTitle == input.ConfiguredTitle;
+              }))
+           {
+             debug (input.ConfiguredTitle,"is unique");
+             inputs.push(input);
+             id++;
+           } else debug (input.ConfiguredTitle,"already exists");
         }
         // manually add Main Zone Sync as the receiver XML does not have any info on this
         inputs.push({
@@ -157,8 +163,14 @@ function setupFromService(service) {
             input.Identifier = id;
             input.InputDeviceType = 0;
             input.InputSourceType = 10; // App
-            inputs.push(input);
-            id++;
+            if(!inputs.find(function(element) { // only insert if it does not already exist
+               return element.configuredTitle == input.ConfiguredTitle;
+                 }))
+            {
+                debug (input.ConfiguredTitle,"is unique");
+                inputs.push(input);
+                id++;
+            } else debug (input.ConfiguredTitle,"already exists");
           }
         }
 
