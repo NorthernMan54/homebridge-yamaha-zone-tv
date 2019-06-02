@@ -130,13 +130,13 @@ function setupFromService(service) {
           input.InputDeviceType = 0;
           input.InputSourceType = 0;
           if(!inputs.find(function(element) { // only insert if it does not already exist
-             return element.configuredTitle == input.ConfiguredTitle;
+             return element.configuredName == input.ConfiguredName;
               }))
            {
-             debug (input.ConfiguredTitle,"is unique");
+             debug (input.ConfiguredName,"is unique");
              inputs.push(input);
              id++;
-           } else debug (input.ConfiguredTitle,"already exists");
+           } else debug (input.ConfiguredName,"already exists");
         }
         // manually add Main Zone Sync as the receiver XML does not have any info on this
         inputs.push({
@@ -164,13 +164,13 @@ function setupFromService(service) {
             input.InputDeviceType = 0;
             input.InputSourceType = 10; // App
             if(!inputs.find(function(element) { // only insert if it does not already exist
-               return element.configuredTitle == input.ConfiguredTitle;
+               return element.configuredTitle == input.ConfiguredName;
                  }))
             {
-                debug (input.ConfiguredTitle,"is unique");
+                debug (input.ConfiguredName,"is unique");
                 inputs.push(input);
                 id++;
-            } else debug (input.ConfiguredTitle,"already exists");
+            } else debug (input.ConfiguredName,"already exists");
           }
         }
 
@@ -538,6 +538,8 @@ YamahaZone.prototype = {
           inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
           inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
         }
+
+        debug ("Input service", inputService.displayName, inputService.UUID, inputService.subtype, input.ConfiguredTitle, input.ConfiguredName);
 
         zoneService.addLinkedService(inputService);
         this.accessory.addService(inputService);
