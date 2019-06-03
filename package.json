@@ -29,7 +29,7 @@
     "q": "^1.5.1",
     "request": "^2.88.0",
     "util": "^0.12.0",
-    "yamaha-nodejs": ">=0.9.0"
+    "yamaha-nodejs": "^0.9.1"
   },
   "author": "NorthernMan54",
   "license": "ISC",
