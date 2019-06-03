@@ -147,15 +147,6 @@ function setupFromService(service) {
           InputSourceType: [0]
         });
         id++;
-        inputs.push({
-          ConfiguredName: 'SERVER',
-          ConfiguredTitle: 'SERVER',
-          Identifier: id,
-          InputDeviceType: [0],
-          InputSourceType: [0]
-        });
-        id++;
-
 
         // iterate through the feature list of the amp to add more inputs
         var zonesXML = sysConfig.YAMAHA_AV.System[0].Config[0].Feature_Existence[0];
