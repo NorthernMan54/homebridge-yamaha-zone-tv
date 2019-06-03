@@ -130,7 +130,7 @@ function setupFromService(service) {
           input.InputDeviceType = 0;
           input.InputSourceType = 0;
           if(!inputs.find(function(element) { // only insert if it does not already exist
-             return element.configuredName === input.ConfiguredName;
+             return input.ConfiguredName === element.ConfiguredName;
               }))
            {
              debug (input.ConfiguredName,"is unique");
