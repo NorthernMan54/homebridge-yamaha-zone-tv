@@ -120,6 +120,7 @@ function setupFromService(service) {
         for (var prop in inputsXML) { // iterate through all inputs
           var input = {};
           // some of the names returned are not in sync with the names used for setting the input, so they are converted to match
+          if (prop === 'NET_RADIO') prop = "NET RADIO";
           if (prop === 'V_AUX') {
             input.ConfiguredName = "V-AUX";
           } else { // None of the inputs use an _ in setting the input, so removing _ from the input names
