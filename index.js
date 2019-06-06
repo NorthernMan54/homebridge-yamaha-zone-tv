@@ -120,17 +120,25 @@ function setupFromService(service) {
         for (var prop in inputsXML) { // iterate through all inputs
           var input = {};
           // some of the names returned are not in sync with the names used for setting the input, so they are converted to match
-          if (prop === 'V_AUX') {
-            input.ConfiguredName = "V-AUX";
-          } else { // None of the inputs use an _ in setting the input, so removing _ from the input names
-            input.ConfiguredName = prop.replace("_", "");
-          }
+          if (prop === 'NET_RADIO') input.ConfiguredName = "NET RADIO"
+          else
+            if (prop === 'V_AUX') {
+              input.ConfiguredName = "V-AUX";
+            } else { // None of the inputs use an _ in setting the input, so removing _ from the input names
+              input.ConfiguredName = prop.replace("_", "");
+            }
           input.ConfiguredTitle = inputsXML[prop][0];
           input.Identifier = id;
           input.InputDeviceType = 0;
           input.InputSourceType = 0;
-          inputs.push(input);
-          id++;
+          if(!inputs.find(function(element) { // only insert if it does not already exist
+             return input.ConfiguredName === element.ConfiguredName;
+              }))
+           {
+             debug (input.ConfiguredName,"is unique");
+             inputs.push(input);
+             id++;
+           } else debug (input.ConfiguredName,"already exists");
         }
         // manually add Main Zone Sync as the receiver XML does not have any info on this
         inputs.push({
@@ -157,8 +165,14 @@ function setupFromService(service) {
             input.Identifier = id;
             input.InputDeviceType = 0;
             input.InputSourceType = 10; // App
-            inputs.push(input);
-            id++;
+            if(!inputs.find(function(element) { // only insert if it does not already exist
+               return input.ConfiguredName === element.ConfiguredName;
+                 }))
+            {
+                debug (input.ConfiguredName,"is unique");
+                inputs.push(input);
+                id++;
+            } else debug (input.ConfiguredName,"already exists");
           }
         }
 
@@ -526,6 +540,8 @@ YamahaZone.prototype = {
           inputService.getCharacteristic(Characteristic.CurrentVisibilityState).updateValue(1);
           inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
         }
+
+        debug ("Input service", inputService.displayName, inputService.UUID, inputService.subtype, input.ConfiguredTitle, input.ConfiguredName);
 
         zoneService.addLinkedService(inputService);
         this.accessory.addService(inputService);
