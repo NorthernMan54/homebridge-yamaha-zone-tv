@@ -1,6 +1,6 @@
 {
   "name": "homebridge-yamaha-zone-tv",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "homebridge-plugin for Yamaha AVR https://github.com/nfarina/homebridge",
   "main": "index.js",
   "scripts": {
