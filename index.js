@@ -191,7 +191,7 @@ function setupFromService(service) {
                         }
                         if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
                           this.log("Adding TV Control for", zoneName);
-                          var uuid = UUIDGen.generate(zoneName + "Y");
+                          var uuid = UUIDGen.generate(zoneName + "Y" + name);
                           var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
                           var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs);
                           accessory.getServices();
