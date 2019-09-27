@@ -421,7 +421,7 @@ YamahaZone.prototype = {
 
       zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(this.inputs.find(function(input) {
         return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
-      }).Identifier);
+      }).Identifier).bind(this);
     });
 
     zoneService
