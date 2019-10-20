@@ -80,7 +80,9 @@ YamahaAVRPlatform.prototype.didFinishLaunching = function() {
     browser.stop();
     that.log("Discovery finished, found " + accessories.length + " Yamaha AVR devices.");
     that.api.publishExternalAccessories("yamaha-zone-tv", accessories);
-    that.api.registerPlatformAccessories("yamaha-zone-tv", "yamaha-zone", [controlAccessory]);
+    if (controlAccessory) {
+      that.api.registerPlatformAccessories("yamaha-zone-tv", "yamaha-zone", [controlAccessory]);
+    }
   };
   timer = setTimeout(timeoutFunction, checkCyclePeriod);
 };
@@ -193,7 +195,7 @@ function setupFromService(service) {
                         if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
                           this.log("Adding TV Control for", zoneName);
                           var uuid = UUIDGen.generate(zoneName + "Z" + name);
-                          var zoneAccessory = new Accessory(zoneName + "Z", uuid, hap.Accessory.Categories.TELEVISION);
+                          var zoneAccessory = new Accessory(zoneName, uuid, hap.Accessory.Categories.TELEVISION);
                           var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs, controlAccessory);
                           accessory.getServices();
                           accessories.push(zoneAccessory);
@@ -277,7 +279,7 @@ YamahaZone.prototype = {
       var CinformationService = this.controlAccessory.getService(Service.AccessoryInformation);
 
       CinformationService
-        .setCharacteristic(Characteristic.Name, this.name)
+        .setCharacteristic(Characteristic.Name, this.unitName)
         .setCharacteristic(Characteristic.Manufacturer, "yamaha-zone-tv")
         .setCharacteristic(Characteristic.Model, this.sysConfig.YAMAHA_AV.System[0].Config[0].Model_Name[0])
         .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version)
