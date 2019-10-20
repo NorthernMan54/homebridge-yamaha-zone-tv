@@ -24,6 +24,7 @@ var bonjour = require('bonjour')();
 var ip = require('ip');
 var sysIds = {};
 var accessories = [];
+var controlAccessory;
 
 module.exports = function(homebridge) {
   Accessory = homebridge.platformAccessory;
@@ -79,6 +80,7 @@ YamahaAVRPlatform.prototype.didFinishLaunching = function() {
     browser.stop();
     that.log("Discovery finished, found " + accessories.length + " Yamaha AVR devices.");
     that.api.publishExternalAccessories("yamaha-zone-tv", accessories);
+    that.api.registerPlatformAccessories("yamaha-zone-tv", "yamaha-zone", [controlAccessory]);
   };
   timer = setTimeout(timeoutFunction, checkCyclePeriod);
 };
@@ -121,23 +123,22 @@ function setupFromService(service) {
           // some of the names returned are not in sync with the names used for setting the input, so they are converted to match
           if (prop === 'NET_RADIO') input.ConfiguredName = "NET RADIO"
           else
-            if (prop === 'V_AUX') {
-              input.ConfiguredName = "V-AUX";
-            } else { // None of the inputs use an _ in setting the input, so removing _ from the input names
-              input.ConfiguredName = prop.replace("_", "");
-            }
+          if (prop === 'V_AUX') {
+            input.ConfiguredName = "V-AUX";
+          } else { // None of the inputs use an _ in setting the input, so removing _ from the input names
+            input.ConfiguredName = prop.replace("_", "");
+          }
           input.ConfiguredTitle = inputsXML[prop][0];
           input.Identifier = id;
           input.InputDeviceType = 0;
           input.InputSourceType = 0;
-          if(!inputs.find(function(element) { // only insert if it does not already exist
-             return input.ConfiguredName === element.ConfiguredName;
-              }))
-           {
-             debug (input.ConfiguredName,"is unique");
-             inputs.push(input);
-             id++;
-           } else debug (input.ConfiguredName,"already exists");
+          if (!inputs.find(function(element) { // only insert if it does not already exist
+              return input.ConfiguredName === element.ConfiguredName;
+            })) {
+            debug(input.ConfiguredName, "is unique");
+            inputs.push(input);
+            id++;
+          } else debug(input.ConfiguredName, "already exists");
         }
         // manually add Main Zone Sync as the receiver XML does not have any info on this
         inputs.push({
@@ -164,20 +165,20 @@ function setupFromService(service) {
             input.Identifier = id;
             input.InputDeviceType = 0;
             input.InputSourceType = 10; // App
-            if(!inputs.find(function(element) { // only insert if it does not already exist
-               return input.ConfiguredName === element.ConfiguredName;
-                 }))
-            {
-                debug (input.ConfiguredName,"is unique");
-                inputs.push(input);
-                id++;
-            } else debug (input.ConfiguredName,"already exists");
+            if (!inputs.find(function(element) { // only insert if it does not already exist
+                return input.ConfiguredName === element.ConfiguredName;
+              })) {
+              debug(input.ConfiguredName, "is unique");
+              inputs.push(input);
+              id++;
+            } else debug(input.ConfiguredName, "already exists");
           }
         }
 
         yamaha.getAvailableZones().then(
           function(zones) {
             if (zones.length > 0) {
+              controlAccessory = new Accessory(name + "C", UUIDGen.generate(name));
               for (var zone in zones) {
                 yamaha.getBasicInfo(zones[zone]).then(function(basicInfo) {
                   if (basicInfo.getVolume() !== -999) {
@@ -191,9 +192,9 @@ function setupFromService(service) {
                         }
                         if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
                           this.log("Adding TV Control for", zoneName);
-                          var uuid = UUIDGen.generate(zoneName + "Y" + name);
-                          var zoneAccessory = new Accessory(zoneName + "Y", uuid, hap.Accessory.Categories.TELEVISION);
-                          var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs);
+                          var uuid = UUIDGen.generate(zoneName + "Z" + name);
+                          var zoneAccessory = new Accessory(zoneName + "Z", uuid, hap.Accessory.Categories.TELEVISION);
+                          var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs, controlAccessory);
                           accessory.getServices();
                           accessories.push(zoneAccessory);
                         }
@@ -213,7 +214,7 @@ function setupFromService(service) {
   );
 }
 
-function YamahaZone(log, config, name, yamaha, sysConfig, zone, accessory, unitName, inputs) {
+function YamahaZone(log, config, name, yamaha, sysConfig, zone, accessory, unitName, inputs, controlAccessory) {
   this.log = log;
   this.config = config;
   this.name = name;
@@ -223,6 +224,7 @@ function YamahaZone(log, config, name, yamaha, sysConfig, zone, accessory, unitN
   this.accessory = accessory;
   this.unitName = unitName;
   this.inputs = inputs;
+  this.controlAccessory = controlAccessory;
 
   this.radioPresets = config["radio_presets"] || false;
   this.presetNum = config["preset_num"] || false;
@@ -259,7 +261,7 @@ YamahaZone.prototype = {
     var that = this;
     var yamaha = this.yamaha;
 
-    var informationService = this.accessory.services[0];
+    var informationService = this.accessory.getService(Service.AccessoryInformation);
 
     informationService
       .setCharacteristic(Characteristic.Name, this.name)
@@ -272,7 +274,16 @@ YamahaZone.prototype = {
     if (this.zone === "Main_Zone") {
       // Party Mode switch
 
-      var mainSwitch = new Service.Switch(this.unitName, UUIDGen.generate(this.unitName), this.unitName);
+      var CinformationService = this.controlAccessory.getService(Service.AccessoryInformation);
+
+      CinformationService
+        .setCharacteristic(Characteristic.Name, this.name)
+        .setCharacteristic(Characteristic.Manufacturer, "yamaha-zone-tv")
+        .setCharacteristic(Characteristic.Model, this.sysConfig.YAMAHA_AV.System[0].Config[0].Model_Name[0])
+        .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version)
+        .setCharacteristic(Characteristic.SerialNumber, this.sysConfig.YAMAHA_AV.System[0].Config[0].System_ID[0]);
+
+      var mainSwitch = new Service.Switch("Main Power", UUIDGen.generate(this.unitName), this.unitName);
       mainSwitch
         .getCharacteristic(Characteristic.On)
         .on('get', function(callback, context) {
@@ -293,7 +304,8 @@ YamahaZone.prototype = {
             callback(error, !powerOn); // TODO: Actually determine and send real new status.
           });
         }.bind(this));
-      this.accessory.addService(mainSwitch);
+      mainSwitch.isPrimaryService = true;
+      this.controlAccessory.addService(mainSwitch);
 
       // Party Mode switch
 
@@ -321,7 +333,7 @@ YamahaZone.prototype = {
             });
           }
         }.bind(this));
-      this.accessory.addService(partySwitch);
+      this.controlAccessory.addService(partySwitch);
 
       // Radio Preset buttons
 
@@ -380,7 +392,7 @@ YamahaZone.prototype = {
               }.bind(presetSwitch));
 
             // debug("Bind", this, presetSwitch);
-            this.accessory.addService(presetSwitch);
+            this.controlAccessory.addService(presetSwitch);
           }
         }.bind(this)).bind(this);
       }
@@ -419,9 +431,9 @@ YamahaZone.prototype = {
 
       // Set identifier for active input
 
-      zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(this.inputs.find(function(input) {
+      zoneService.getCharacteristic(Characteristic.ActiveIdentifier).updateValue(that.inputs.find(function(input) {
         return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
-      }).Identifier).bind(this);
+      }).Identifier);
     });
 
     zoneService
@@ -430,7 +442,7 @@ YamahaZone.prototype = {
         // debug("getActiveIdentifier", that.zone);
         yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
           debug("getActiveIdentifier Input", that.zone, basicInfo.getCurrentInput());
-          callback(null, this.inputs.find(function(input) {
+          callback(null, that.inputs.find(function(input) {
             return (input.ConfiguredName === basicInfo.getCurrentInput() ? input : false);
           }).Identifier);
         });
@@ -438,7 +450,7 @@ YamahaZone.prototype = {
       })
       .on('set', function(newValue, callback) {
         debug("setActiveIdentifier => setNewValue: ", that.zone, newValue);
-        yamaha.setInputTo(this.inputs.find(function(input) {
+        yamaha.setInputTo(that.inputs.find(function(input) {
           debug("find %s === %s", input.Identifier, newValue);
           return (input.Identifier === newValue ? input : false);
         }).ConfiguredName, that.zone).then(function(a, b) {
@@ -516,10 +528,10 @@ YamahaZone.prototype = {
 
     this.accessory.addService(zoneService);
 
-    this.inputs.forEach(function(input) {
+    that.inputs.forEach(function(input) {
       // Don't add Main Zone Sync for the Main zone
       if (this.zone !== "Main_Zone" || input.ConfiguredName !== "Main Zone Sync") {
-        debug("Adding input", input.ConfiguredName, "for zone", this.name);
+        // debug("Adding input", input.ConfiguredName, "for zone", this.name);
         var inputService = new Service.InputSource(input.ConfiguredName, UUIDGen.generate(this.name + input.ConfiguredName), input.ConfiguredName);
 
         inputService
@@ -541,7 +553,7 @@ YamahaZone.prototype = {
           inputService.getCharacteristic(Characteristic.TargetVisibilityState).updateValue(1);
         }
 
-        debug ("Input service", inputService.displayName, inputService.UUID, inputService.subtype, input.ConfiguredTitle, input.ConfiguredName);
+        // debug("Input service", inputService.displayName, inputService.UUID, inputService.subtype, input.ConfiguredTitle, input.ConfiguredName);
 
         zoneService.addLinkedService(inputService);
         this.accessory.addService(inputService);
