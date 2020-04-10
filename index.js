@@ -46,6 +46,7 @@ function YamahaAVRPlatform(log, config, api) {
   this.gapVolume = this.maxVolume - this.minVolume;
   this.discoveryTimeout = config["discovery_timeout"] || 10;
   this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
+  this.cursorRemoteControl = config["cursor_remote_control"] || false;
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
@@ -467,34 +468,59 @@ YamahaZone.prototype = {
       .getCharacteristic(Characteristic.RemoteKey)
       .on('set', function(newValue, callback) {
         debug("setRemoteKey: ", that.zone, newValue);
-        switch (newValue) {
-          case Characteristic.RemoteKey.ARROW_UP:
-            yamaha.remoteCursor("Up");
-            break;
-          case Characteristic.RemoteKey.ARROW_DOWN:
-            yamaha.remoteCursor("Down");
-            break;
-          case Characteristic.RemoteKey.ARROW_RIGHT:
-            yamaha.remoteCursor("Right");
-            break;
-          case Characteristic.RemoteKey.ARROW_LEFT:
-            yamaha.remoteCursor("Left");
-            break;
-          case Characteristic.RemoteKey.SELECT:
-            yamaha.remoteCursor("Sel");
-            break;
-          case Characteristic.RemoteKey.BACK:
-            yamaha.remoteCursor("Return");
-            break;
-          case Characteristic.RemoteKey.INFORMATION:
-            yamaha.remoteMenu("On Screen");
-            break;
-          case Characteristic.RemoteKey.PLAY_PAUSE:
+        if (this.cursorRemoteControl) {
+          switch (newValue) {
+            case Characteristic.RemoteKey.ARROW_UP:
+              yamaha.remoteCursor("Up");
+              break;
+            case Characteristic.RemoteKey.ARROW_DOWN:
+              yamaha.remoteCursor("Down");
+              break;
+            case Characteristic.RemoteKey.ARROW_RIGHT:
+              yamaha.remoteCursor("Right");
+              break;
+            case Characteristic.RemoteKey.ARROW_LEFT:
+              yamaha.remoteCursor("Left");
+              break;
+            case Characteristic.RemoteKey.SELECT:
+              yamaha.remoteCursor("Sel");
+              break;
+            case Characteristic.RemoteKey.BACK:
+              yamaha.remoteCursor("Return");
+              break;
+            case Characteristic.RemoteKey.INFORMATION:
+              yamaha.remoteMenu("On Screen");
+              break;
+            case Characteristic.RemoteKey.PLAY_PAUSE:
+              yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
+                basicInfo.isMuted(that.zone) ? yamaha.muteOff(that.zone) : yamaha.muteOn(that.zone);
+              });
+              break;
+            default:
+          }
+        } else {
+          var option = util.mapKeyToControl(newValue);
+          if (option) {
+            debug("command", that.zone, newValue, option, this.pausePlay);
             yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
-              basicInfo.isMuted(that.zone) ? yamaha.muteOff(that.zone) : yamaha.muteOn(that.zone);
+              if (basicInfo.getCurrentInput() === 'AirPlay' || basicInfo.getCurrentInput() === 'Spotify') {
+                var input = basicInfo.getCurrentInput();
+                yamaha.SendXMLToReceiver(
+                  '<YAMAHA_AV cmd="PUT"><' + input + '><Play_Control><Playback>' + option + '</Playback></Play_Control></' + input + '></YAMAHA_AV>'
+                );
+              } else { // For non Spotify or Airplay sources perform Mute
+                if (newValue === Characteristic.RemoteKey.PLAY_PAUSE) {
+                  if (basicInfo.isMuted(that.zone)) {
+                    debug("Mute Off: ", that.zone);
+                    yamaha.muteOff(that.zone);
+                  } else {
+                    debug("Mute On : ", that.zone);
+                    yamaha.muteOn(that.zone);
+                  }
+                } // end Mute functionality for non Spotiry or Airplay sources
+              }
             });
-            break;
-          default:
+          }
         }
         callback(null);
       });
