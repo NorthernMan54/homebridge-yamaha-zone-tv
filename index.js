@@ -523,7 +523,7 @@ YamahaZone.prototype = {
           }
         }
         callback(null);
-      });
+      }.bind(this));
 
     zoneService
       .getCharacteristic(Characteristic.CurrentMediaState)
