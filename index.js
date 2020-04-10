@@ -46,7 +46,6 @@ function YamahaAVRPlatform(log, config, api) {
   this.gapVolume = this.maxVolume - this.minVolume;
   this.discoveryTimeout = config["discovery_timeout"] || 10;
   this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
-  this.cursorRemoteControl = config["cursor_remote_control"] || false;
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
@@ -233,6 +232,7 @@ function YamahaZone(log, config, name, yamaha, sysConfig, zone, accessory, unitN
   this.presetNum = config["preset_num"] || false;
   this.minVolume = config["min_volume"] || -80.0;
   this.maxVolume = config["max_volume"] || -10.0;
+  this.cursorRemoteControl = config["cursor_remote_control"] || false;
   this.gapVolume = this.maxVolume - this.minVolume;
 }
 
@@ -463,7 +463,6 @@ YamahaZone.prototype = {
         // callback(null);
       });
 
-    // Spotify / Airplay controls
     zoneService
       .getCharacteristic(Characteristic.RemoteKey)
       .on('set', function(newValue, callback) {
@@ -517,7 +516,7 @@ YamahaZone.prototype = {
                     debug("Mute On : ", that.zone);
                     yamaha.muteOn(that.zone);
                   }
-                } // end Mute functionality for non Spotiry or Airplay sources
+                } // end Mute functionality for non Spotify or Airplay sources
               }
             });
           }
