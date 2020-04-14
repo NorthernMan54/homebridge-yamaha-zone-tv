@@ -25,6 +25,7 @@ Follow the instruction in [NPM](https://www.npmjs.com/package/homebridge) for th
 -   preset_num - Names the switch the number of the preset, defaults to false ( true/false ). Otherwise the name is the frequency. ( useful with Siri and Alexa )
 -   zone - Zone name
 -   zone_controllers_only_for - A list of zone names for which an accessory is to be created. If no value for this key is provided, then accessories for all available zones are created.
+-   cursor_remote_control - If set to true the remote control will control the cursor for use with on screen display, else it will control the media playback ( true/false ).
 
 ## Basic config.json config
 
