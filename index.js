@@ -24,6 +24,7 @@ var bonjour = require('bonjour')();
 var ip = require('ip');
 var sysIds = {};
 var accessories = [];
+var cachedAccessories = [];
 var controlAccessory;
 
 module.exports = function(homebridge) {
@@ -53,7 +54,8 @@ function YamahaAVRPlatform(log, config, api) {
 }
 
 YamahaAVRPlatform.prototype.configureAccessory = function(accessory) {
-  debug("configureAccessory", accessory);
+  cachedAccessories.push(accessory)
+  debug("configuredAccessory", accessory);
 };
 
 YamahaAVRPlatform.prototype.didFinishLaunching = function() {
@@ -82,7 +84,8 @@ YamahaAVRPlatform.prototype.didFinishLaunching = function() {
     browser.stop();
     that.log("Discovery finished, found " + accessories.length + " Yamaha AVR devices.");
     that.api.publishExternalAccessories("yamaha-zone-tv", accessories);
-    if (controlAccessory) {
+
+    if (controlAccessory && !cachedAccessories.find(accessory => accessory.UUID === controlAccessory.UUID)) {
       that.api.registerPlatformAccessories("yamaha-zone-tv", "yamaha-zone", [controlAccessory]);
     }
   };
@@ -197,10 +200,12 @@ function setupFromService(service) {
                         if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
                           this.log("Adding TV Control for", zoneName);
                           var uuid = UUIDGen.generate(zoneName + "Z" + name);
-                          var zoneAccessory = new Accessory(zoneName, uuid, hap.Accessory.Categories.AUDIO_RECEIVER);
-                          var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs, controlAccessory);
-                          accessory.getServices();
-                          accessories.push(zoneAccessory);
+                          if (!cachedAccessories.find(accessory => accessory.UUID === uuid)) {
+                            var zoneAccessory = new Accessory(zoneName, uuid, hap.Accessory.Categories.AUDIO_RECEIVER);
+                            var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, z, zoneAccessory, name, inputs, controlAccessory);
+                            accessory.getServices();
+                            accessories.push(zoneAccessory);
+                          }
                         }
                       }.bind(this)
                     );
@@ -278,15 +283,15 @@ YamahaZone.prototype = {
     // for main zone Only
     if (this.zone === "Main_Zone") {
 
-      var CinformationService = this.controlAccessory.getService(Service.AccessoryInformation);
-
-      CinformationService
+      if (!this.disableMainPowerSwitch || !this.disablePartySwitch || this.radioPresets) {
+        this.controlAccessory.getService(Service.AccessoryInformation)
         .setCharacteristic(Characteristic.Name, this.unitName)
         .setCharacteristic(Characteristic.Manufacturer, "yamaha-zone-tv")
         .setCharacteristic(Characteristic.Model, this.sysConfig.YAMAHA_AV.System[0].Config[0].Model_Name[0])
         .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version)
         .setCharacteristic(Characteristic.SerialNumber, this.sysConfig.YAMAHA_AV.System[0].Config[0].System_ID[0]);
-
+      }
+      
       if (!this.disableMainPowerSwitch) {
         var mainSwitch = new Service.Switch("Main Power", UUIDGen.generate(this.unitName), this.unitName);
         mainSwitch
