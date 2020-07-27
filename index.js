@@ -645,7 +645,7 @@ YamahaZone.prototype = {
           });
 
         } else {
-          debug("Incrementing Volume by 1 for ", that.zone, v / 10);
+          debug("Incrementing Volume by 1 for ", that.zone);
           yamaha.volumeUp(1, that.zone).then(function(status) {
             debug("Status", that.zone, status);
           });
