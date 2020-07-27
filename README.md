@@ -26,6 +26,8 @@ Follow the instruction in [NPM](https://www.npmjs.com/package/homebridge) for th
 -   zone - Zone name
 -   zone_controllers_only_for - A list of zone names for which an accessory is to be created. If no value for this key is provided, then accessories for all available zones are created.
 -   cursor_remote_control - If set to true the remote control will control the cursor for use with on screen display, else it will control the media playback ( true/false ).
+- disable_party_switch - If set to true, a party switch will NOT be created.
+- disable_main_power_switch - If set to true, a main power switch will NOT be created.
 
 ## Basic config.json config
 

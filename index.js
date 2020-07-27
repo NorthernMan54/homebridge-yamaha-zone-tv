@@ -43,6 +43,8 @@ function YamahaAVRPlatform(log, config, api) {
   this.zone = config["zone"] || "Main";
   this.minVolume = config["min_volume"] || -80.0;
   this.maxVolume = config["max_volume"] || 20.0;
+  this.disablePartySwitch = config["disable_party_switch"] || false;
+  this.disableMainPowerSwitch = config["disable_main_power_switch"] || false;
   this.gapVolume = this.maxVolume - this.minVolume;
   this.discoveryTimeout = config["discovery_timeout"] || 10;
   this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
@@ -275,7 +277,6 @@ YamahaZone.prototype = {
 
     // for main zone Only
     if (this.zone === "Main_Zone") {
-      // Party Mode switch
 
       var CinformationService = this.controlAccessory.getService(Service.AccessoryInformation);
 
@@ -286,57 +287,60 @@ YamahaZone.prototype = {
         .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version)
         .setCharacteristic(Characteristic.SerialNumber, this.sysConfig.YAMAHA_AV.System[0].Config[0].System_ID[0]);
 
-      var mainSwitch = new Service.Switch("Main Power", UUIDGen.generate(this.unitName), this.unitName);
-      mainSwitch
-        .getCharacteristic(Characteristic.On)
-        .on('get', function(callback, context) {
-          yamaha.isOn().then(
-            function(result) {
-              debug("Main Power", result);
-              callback(null, result);
-            },
-            function(error) {
-              callback(error, false);
-            }
-          );
-        })
-        .on('set', function(powerOn, callback) {
-          this.setPlaying(powerOn).then(function() {
-            callback(null, powerOn);
-          }, function(error) {
-            callback(error, !powerOn); // TODO: Actually determine and send real new status.
-          });
-        }.bind(this));
-      mainSwitch.isPrimaryService = true;
-      this.controlAccessory.addService(mainSwitch);
-
+      if (!this.disableMainPowerSwitch) {
+        var mainSwitch = new Service.Switch("Main Power", UUIDGen.generate(this.unitName), this.unitName);
+        mainSwitch
+          .getCharacteristic(Characteristic.On)
+          .on('get', function(callback, context) {
+            yamaha.isOn().then(
+              function(result) {
+                debug("Main Power", result);
+                callback(null, result);
+              },
+              function(error) {
+                callback(error, false);
+              }
+            );
+          })
+          .on('set', function(powerOn, callback) {
+            this.setPlaying(powerOn).then(function() {
+              callback(null, powerOn);
+            }, function(error) {
+              callback(error, !powerOn); // TODO: Actually determine and send real new status.
+            });
+          }.bind(this));
+        mainSwitch.isPrimaryService = true;
+        this.controlAccessory.addService(mainSwitch);
+      }
       // Party Mode switch
+      if (!this.disablePartySwitch) {
 
-      var partySwitch = new Service.Switch("Party", UUIDGen.generate("Party"), "Party");
-      partySwitch
-        .getCharacteristic(Characteristic.On)
-        .on('get', function(callback) {
-          this.yamaha.isPartyModeEnabled().then(function(result) {
-            debug("getPartySwitch", that.zone, result);
-            callback(null, result);
-          });
-        }.bind(this))
-        .on('set', function(on, callback) {
-          debug("setPartySwitch", that.zone, on);
-          if (on) {
-            const that = this;
-            this.yamaha.powerOn().then(function() {
-              that.yamaha.partyModeOn().then(function() {
-                callback(null, true);
+        var partySwitch = new Service.Switch("Party", UUIDGen.generate("Party"), "Party");
+        partySwitch
+          .getCharacteristic(Characteristic.On)
+          .on('get', function(callback) {
+            this.yamaha.isPartyModeEnabled().then(function(result) {
+              debug("getPartySwitch", that.zone, result);
+              callback(null, result);
+            });
+          }.bind(this))
+          .on('set', function(on, callback) {
+            debug("setPartySwitch", that.zone, on);
+            if (on) {
+              const that = this;
+              this.yamaha.powerOn().then(function() {
+                that.yamaha.partyModeOn().then(function() {
+                  callback(null, true);
+                });
               });
-            });
-          } else {
-            this.yamaha.partyModeOff().then(function() {
-              callback(null, false);
-            });
-          }
-        }.bind(this));
-      this.controlAccessory.addService(partySwitch);
+            } else {
+              this.yamaha.partyModeOff().then(function() {
+                callback(null, false);
+              });
+            }
+          }.bind(this));
+        this.controlAccessory.addService(partySwitch);
+      }
 
       // Radio Preset buttons
 
