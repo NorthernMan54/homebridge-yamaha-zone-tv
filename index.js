@@ -608,18 +608,8 @@ YamahaZone.prototype = {
 
     speakerService
       .setCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE)
-      .setCharacteristic(Characteristic.VolumeControlType, Characteristic.VolumeControlType.ABSOLUTE);
+      .setCharacteristic(Characteristic.VolumeControlType, Characteristic.VolumeControlType.RELATIVE_WITH_CURRENT);
     // .setCharacteristic(Characteristic.Volume, 50);
-
-    speakerService.getCharacteristic(Characteristic.Volume)
-      .on('get', function(callback) {
-        debug("get Volume", that.zone);
-        callback(null);
-      })
-      .on('set', function(newValue, callback) {
-        debug("set Volume => setNewValue: ", that.zone, newValue);
-        callback(null);
-      });
 
     yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
       var v = basicInfo.getVolume() / 10.0;
@@ -629,19 +619,37 @@ YamahaZone.prototype = {
       speakerService.getCharacteristic(Characteristic.Volume).updateValue(p);
     });
 
-    speakerService.getCharacteristic(Characteristic.VolumeSelector)
-      .on('set', function(newValue, callback) {
-        var volume = speakerService.getCharacteristic(Characteristic.Volume).value;
-        // debug(volume, speakerService.getCharacteristic(Characteristic.Volume));
-        volume = volume + (newValue ? -1 : +1);
-        speakerService.getCharacteristic(Characteristic.Volume).updateValue(volume);
-        var v = ((volume / 100) * that.gapVolume) + that.minVolume;
-        v = Math.round(v) * 10.0;
-        debug("Setting volume to ", that.zone, v / 10);
-        yamaha.setVolumeTo(v, that.zone).then(function(status) {
-          debug("Status", that.zone, status);
+    speakerService.getCharacteristic(Characteristic.Volume)
+      .on('get', function(callback) {
+        debug("get Volume", that.zone);
+        yamaha.getBasicInfo(that.zone).then(function(basicInfo) {
+          var v = basicInfo.getVolume() / 10.0;
+          var p = 100 * ((v - that.minVolume) / that.gapVolume);
+          p = p < 0 ? 0 : p > 100 ? 100 : Math.round(p);
+          debug("Got volume percent of " + p + "%", that.zone);
+          callback(p);
         });
-        debug("set VolumeSelector => setNewValue: ", that.zone, newValue, volume);
+      })
+      .on('set', function(newValue, callback) {
+        debug("set Volume => setNewValue: ", that.zone, newValue);
+        callback(null);
+      });
+
+
+    speakerService.getCharacteristic(Characteristic.VolumeSelector)
+      .on('set', function(decrement, callback) {
+        if (decrement) {
+          debug("Decrementing Volume by 1 for ", that.zone);
+          yamaha.volumeDown(1, that.zone).then(function(status) {
+            debug("Status", that.zone, status);
+          });
+
+        } else {
+          debug("Incrementing Volume by 1 for ", that.zone, v / 10);
+          yamaha.volumeUp(1, that.zone).then(function(status) {
+            debug("Status", that.zone, status);
+          });
+        }
         callback(null);
       });
 
