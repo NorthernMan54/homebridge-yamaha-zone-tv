@@ -731,8 +731,14 @@ YamahaZone.prototype = {
           callback(p);
         });
       })
-      .on('set', function(newValue, callback) {
-        debug("set Volume => setNewValue: ", that.zone, newValue);
+      .on('set', function(volume, callback) {
+        debug("set Volume => setNewValue: ", that.zone, volume);
+        var v = ((volume / 100) * that.gapVolume) + that.minVolume;
+        v = Math.round(v) * 10.0;
+        debug("Setting volume to ", that.zone, v / 10);
+        yamaha.setVolumeTo(v, that.zone).then(function(status) {
+          debug("Status", that.zone, status);
+        });
         callback(null);
       });
 
@@ -745,35 +751,21 @@ YamahaZone.prototype = {
     });
 
     speakerService.getCharacteristic(Characteristic.VolumeSelector)
-      .on('set', function(newValue, callback) {
-        var volume = speakerService.getCharacteristic(Characteristic.Volume).value;
-        // debug(volume, speakerService.getCharacteristic(Characteristic.Volume));
-        volume = volume + (newValue ? -1 : +1);
-        speakerService.getCharacteristic(Characteristic.Volume).updateValue(volume);
-        var v = ((volume / 100) * that.gapVolume) + that.minVolume;
-        v = Math.round(v) * 10.0;
-        debug("Setting volume to ", that.zone, v / 10);
-        yamaha.setVolumeTo(v, that.zone).then(function(status) {
-          debug("Status", that.zone, status);
-        });
-        debug("set VolumeSelector => setNewValue: ", that.zone, newValue, volume);
+      .on('set', function(decrement, callback) {
+        if (decrement) {
+          debug("Decrementing Volume by 1 for ", that.zone);
+          yamaha.volumeDown(10, that.zone).then(function(status) {
+            debug("Status", that.zone, status);
+          });
+
+        } else {
+          debug("Incrementing Volume by 1 for ", that.zone);
+          yamaha.volumeUp(10, that.zone).then(function(status) {
+            debug("Status", that.zone, status);
+          });
+        }
         callback(null);
       });
-      // .on('set', function(decrement, callback) {
-      //   if (decrement) {
-      //     debug("Decrementing Volume by 1 for ", that.zone);
-      //     yamaha.volumeDown(1, that.zone).then(function(status) {
-      //       debug("Status", that.zone, status);
-      //     });
-
-      //   } else {
-      //     debug("Incrementing Volume by 1 for ", that.zone);
-      //     yamaha.volumeUp(1, that.zone).then(function(status) {
-      //       debug("Status", that.zone, status);
-      //     });
-      //   }
-      //   callback(null);
-      // });
 
     this.accessory.addService(speakerService);
   }
