@@ -539,7 +539,7 @@ YamahaZone.prototype = {
         yamaha.setInputTo(that.inputs.find(function(input) {
           debug("find %s === %s", input.Identifier, newValue);
           return (input.Identifier === newValue ? input : false);
-        }).ConfiguredName, that.zone).then(function(a, b) {
+        }).NameIdentifier, that.zone).then(function(a, b) {
           debug("setActiveIdentifier", that.zone, a, b);
           callback();
         });
