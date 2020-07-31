@@ -80,3 +80,4 @@ Example config.json:
 -   TommyCardello - Adding Party Mode Switch, Adding Input or Scene Switches.
 -   Abko - Added automatic detection of inputs. Tested on RX-A3060
 -   torandreroland - Added remote control for AVR using on screen display
+-   Nitay Ben-Zvi - A lot of improvements
