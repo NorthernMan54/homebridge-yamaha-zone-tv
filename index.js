@@ -52,8 +52,9 @@ function YamahaAVRPlatform(log, config, api) {
   this.radioPresets = config["radio_presets"] || false;
   this.gapVolume = this.maxVolume - this.minVolume;
   this.discoveryTimeout = config["discovery_timeout"] || 10;
+  this.manualAddresses = config["manual_addresses"] || {};
   this.zoneControllersOnlyFor = config["zone_controllers_only_for"] || null;
-  
+
   try {
     cachedConfig = JSON.parse(fs.readFileSync(CachedConfigFile));
   } catch (err) {
@@ -65,7 +66,7 @@ function YamahaAVRPlatform(log, config, api) {
           radioPresets: undefined,
         },
         units: {}
-      };  
+      };
   }
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
@@ -73,7 +74,7 @@ function YamahaAVRPlatform(log, config, api) {
 
 YamahaAVRPlatform.prototype.configureAccessory = function(accessory) {
   debug("configuredAccessory", accessory);
-  
+
   var foundDuplicateIndex = cachedAccessories.findIndex(cachedAccessory => cachedAccessory.UUID === accessory.UUID)
   var foundDuplicate = cachedAccessories.find(cachedAccessory => cachedAccessory.UUID === accessory.UUID)
   if (foundDuplicate) {
@@ -94,29 +95,40 @@ YamahaAVRPlatform.prototype.didFinishLaunching = function() {
     type: 'http'
   }, setupFromService.bind(this));
 
+  // process manually specified devices...
+  for (var key in this.manualAddresses) {
+    if (!this.manualAddresses.hasOwnProperty(key)) continue;
+    debug("THIS-0", this);
+    setupFromService.call(this, {
+      name: key,
+      host: this.manualAddresses[key],
+      port: 80
+    });
+  }
+
   setTimeout(function() {
     that.log("Waited " + that.discoveryTimeout + " seconds, stopping discovery.");
-  
+
     browser.stop();
     that.log("Discovery finished, found " + tvAccessories.length + " Yamaha AVR devices.");
     that.api.publishExternalAccessories("homebridge-yamaha-zone-tv", tvAccessories);
-  
-    debug('PLATFORM - cachedAccessories', cachedAccessories)
+
+    // debug('PLATFORM - cachedAccessories', cachedAccessories)
 
     if ( cachedConfig.custom.radioPresets === undefined
-      || cachedConfig.custom.radioPresets !== that.radioPresets 
-      || cachedConfig.custom.disablePartySwitch !== that.disablePartySwitch 
+      || cachedConfig.custom.radioPresets !== that.radioPresets
+      || cachedConfig.custom.disablePartySwitch !== that.disablePartySwitch
       || cachedConfig.custom.disableMainPowerSwitch !== that.disableMainPowerSwitch){
 
         cachedConfig.custom["radioPresets"] = that.radioPresets;
         cachedConfig.custom["disablePartySwitch"] = that.disablePartySwitch;
         cachedConfig.custom["disableMainPowerSwitch"] = that.disableMainPowerSwitch;
-  
+
         fs.writeFile(CachedConfigFile, JSON.stringify(cachedConfig), (err) => {
           if (err)
               debug('Error occured could not write cachedConfig file %s', err);
         });
-  
+
         debug('UNREGISTERING - cachedAccessories')
         that.api.unregisterPlatformAccessories("homebridge-yamaha-zone-tv", "yamaha-zone-tv", cachedAccessories);
         cachedAccessories = [];
@@ -174,11 +186,11 @@ function setupFromService(service) {
         // add discovery of inputs here
         var inputs = []; // used to retrieve available inputs for the detected receiver
         var inputsXML = sysConfig.YAMAHA_AV.System[0].Config[0].Name[0].Input[0];
-        
+
         // manually add Main Zone Sync as the receiver XML does not have any info on this
         inputsXML['Main Zone Sync'] = ['Main Zone Sync']
 
-        for (var prop in inputsXML) { // iterate through all inputs          
+        for (var prop in inputsXML) { // iterate through all inputs
 
           var inputName =util.syncName(prop)
 
@@ -190,15 +202,15 @@ function setupFromService(service) {
           } else {
             input.ConfiguredName = inputsXML[prop][0]
           }
-          
+
           if (util.isUnique(inputs, input.ConfiguredName)) {
             debug(input.ConfiguredName, "is unique");
             inputs.push(input);
-          } else 
+          } else
             debug(input.ConfiguredName, "already exists");
 
         }
-        
+
         // iterate through the feature list of the amp to add more inputs
         var zonesXML = sysConfig.YAMAHA_AV.System[0].Config[0].Feature_Existence[0];
         for (var prop in zonesXML) {
@@ -208,18 +220,18 @@ function setupFromService(service) {
             var inputName =util.syncName(prop)
 
             var input = util.getInputConfig(inputName)
-  
+
             if (cachedConfig.units[sysId].inputsNames[inputName]) {
               input.ConfiguredName = cachedConfig.units[sysId].inputsNames[inputName];
               debug('Found cached input name for')
             } else {
               input.ConfiguredName = inputName
             }
-            
+
             if (util.isUnique(inputs, input.ConfiguredName)) {
               debug(input.ConfiguredName, "is unique");
               inputs.push(input);
-            } else 
+            } else
               debug(input.ConfiguredName, "already exists");
           }
         }
@@ -245,7 +257,7 @@ function setupFromService(service) {
                           var zoneId = "Main_Zone";
                           var zoneName = "Main_Zone";
                         }
-                        
+
                         if (this.zoneControllersOnlyFor == null || this.zoneControllersOnlyFor.includes(zoneName)) {
                           this.log("Adding TV Control for", zoneId);
                           var uuid = UUIDGen.generate(zoneId + "Z" + sysId);
@@ -254,7 +266,7 @@ function setupFromService(service) {
                             zoneName = cachedConfig.units[sysId].zones[zoneId].name
                           else
                             cachedConfig.units[sysId].zones[zoneId] = { name: zoneName, hiddenInputs: {} }
-                          
+
                           if (!cachedAccessories.find(accessory => accessory.UUID === uuid)) {
                             var zoneAccessory = new Accessory(zoneName, uuid, hap.Accessory.Categories.AUDIO_RECEIVER);
                             var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, zoneId, zoneAccessory, name, inputs, controlAccessory);
@@ -353,7 +365,7 @@ YamahaZone.prototype = {
         .setCharacteristic(Characteristic.Model, this.sysConfig.YAMAHA_AV.System[0].Config[0].Model_Name[0])
         .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version)
         .setCharacteristic(Characteristic.SerialNumber, this.sysId);
-      
+
         if (!this.disableMainPowerSwitch) {
           var mainSwitch = new Service.Switch("Main Power", UUIDGen.generate(this.sysId + 'Main Power'), this.sysId + 'Main Power');
           mainSwitch
@@ -475,7 +487,7 @@ YamahaZone.prototype = {
 
     var zoneService = new Service.Television(this.name);
     debug("TV Zone name:", this.name);
-    
+
     zoneService.getCharacteristic(Characteristic.ConfiguredName)
       .on('set', (name, callback) => {
         debug('Setting new ConfiguredName for %s', this.zone )

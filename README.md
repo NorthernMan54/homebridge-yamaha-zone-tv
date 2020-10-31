@@ -28,6 +28,7 @@ Follow the instruction in [NPM](https://www.npmjs.com/package/homebridge) for th
 -   cursor_remote_control - If set to true the remote control will control the cursor for use with on screen display, else it will control the media playback ( true/false ).
 -   disable_party_switch - If set to true, a party switch will NOT be created.
 -   disable_main_power_switch - If set to true, a main power switch will NOT be created.
+-   manual_addresses - Only required if Bonjour/Autodetection doesn't work.
 
 ## Basic config.json config
 
@@ -40,7 +41,7 @@ Follow the instruction in [NPM](https://www.npmjs.com/package/homebridge) for th
 
 Example config.json:
 
-```json
+```
 {
     "bridge": {
         "name": "Homebridge",
@@ -64,6 +65,36 @@ Example config.json:
       {}
     ]
 }
+```
+With manual address
+```
+{
+    "bridge": {
+        "name": "Homebridge",
+        "username": "CC:22:3D:E3:CE:51",
+        "port": 51826,
+        "pin": "031-45-154"
+    },
+    "description": "This is an example configuration file for homebridge plugin for yamaha AVR",
+    "hint": "Always paste into jsonlint.com validation page before starting your homebridge, saves a lot of frustration",
+
+    "platforms": [
+      {
+        "platform": "yamaha-zone-tv",
+        "discovery_timeout": 5,
+        "radio_presets": true,
+        "preset_num": true,
+        "max_volume": 10,
+        "manual_addresses": {
+            "Yamaha": "192.168.1.115"
+        }
+      }
+    ],
+    "accessories": [
+      {}
+    ]
+}
+
 ```
 
 # Other Yamaha Receiver Plugins
