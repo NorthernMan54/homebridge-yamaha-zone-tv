@@ -383,9 +383,9 @@ YamahaZone.prototype = {
             })
             .on('set', function(powerOn, callback) {
               this.setPlaying(powerOn).then(function() {
-                callback(null, powerOn);
+                callback(null);
               }, function(error) {
-                callback(error, !powerOn); // TODO: Actually determine and send real new status.
+                callback(error); // TODO: Actually determine and send real new status.
               });
             }.bind(this));
           mainSwitch.isPrimaryService = true;
@@ -409,12 +409,12 @@ YamahaZone.prototype = {
                 const that = this;
                 this.yamaha.powerOn().then(function() {
                   that.yamaha.partyModeOn().then(function() {
-                    callback(null, true);
+                    callback(null);
                   });
                 });
               } else {
                 this.yamaha.partyModeOff().then(function() {
-                  callback(null, false);
+                  callback(null);
                 });
               }
             }.bind(this));
@@ -496,7 +496,7 @@ YamahaZone.prototype = {
           if (err)
               debug('Error occured could not write cachedConfig file %s', err);
         });
-        callback()
+        callback(null)
       }).updateValue(this.name)
 
     zoneService.getCharacteristic(Characteristic.Active)
@@ -508,16 +508,16 @@ YamahaZone.prototype = {
           },
           function(error) {
             debug("getActive - error", that.zone, error);
-            callback(error, false);
+            callback(error);
           }
         );
       })
       .on('set', function(powerOn, callback) {
         debug("setActive", that.zone, powerOn);
         this.setPlaying(powerOn).then(function() {
-          callback(null, powerOn);
+          callback(null);
         }, function(error) {
-          callback(error, !powerOn); // TODO: Actually determine and send real new status.
+          callback(error); // TODO: Actually determine and send real new status.
         });
       }.bind(this));
 
@@ -553,7 +553,7 @@ YamahaZone.prototype = {
           return (input.Identifier === newValue ? input : false);
         }).NameIdentifier, that.zone).then(function(a, b) {
           debug("setActiveIdentifier", that.zone, a, b);
-          callback();
+          callback(null);
         });
         // callback(null);
       });
@@ -623,7 +623,7 @@ YamahaZone.prototype = {
       .getCharacteristic(Characteristic.CurrentMediaState)
       .on('get', function(callback) {
         debug("getCurrentMediaState", that.zone);
-        callback(null);
+        callback(null, Characteristic.CurrentMediaState.STOP);
       })
       .on('set', function(newValue, callback) {
         debug("setCurrentMediaState => setNewValue: " + newValue);
@@ -634,7 +634,7 @@ YamahaZone.prototype = {
       .getCharacteristic(Characteristic.TargetMediaState)
       .on('get', function(callback) {
         debug("getTargetMediaState", that.zone);
-        callback(null);
+        callback(null, Characteristic.TargetMediaState.STOP);
       })
       .on('set', function(newValue, callback) {
         debug("setTargetMediaState => setNewValue: ", that.zone, newValue);
@@ -682,7 +682,7 @@ YamahaZone.prototype = {
               }
             })
 
-            callback()
+            callback(null)
           }).updateValue(input.ConfiguredName)
 
 
@@ -740,7 +740,7 @@ YamahaZone.prototype = {
           var p = 100 * ((v - that.minVolume) / that.gapVolume);
           p = p < 0 ? 0 : p > 100 ? 100 : Math.round(p);
           debug("Got volume percent of " + p + "%", that.zone);
-          callback(p);
+          callback(null, p);
         });
       })
       .on('set', function(volume, callback) {
