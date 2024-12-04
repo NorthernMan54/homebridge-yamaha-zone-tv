@@ -23,13 +23,14 @@ var Q = require('q');
 var bonjour = require('bonjour')();
 var ip = require('ip');
 
-var Accessory, Service, Characteristic, UUIDGen, CachedConfigFile, cachedConfig;
+var Accessory, Service, Characteristic, UUIDGen, CachedConfigFile, cachedConfig, Categories;
 var sysIds = {};
 var tvAccessories = [];
 var cachedAccessories = [];
 var controlAccessory;
 
 module.exports = function (homebridge) {
+  Categories = homebridge.hap.Categories;
   Accessory = homebridge.platformAccessory;
   Service = homebridge.hap.Service;
   Characteristic = homebridge.hap.Characteristic;
@@ -266,7 +267,7 @@ function setupFromService(service) {
                             cachedConfig.units[sysId].zones[zoneId] = { name: zoneName, hiddenInputs: {} }
 
                           if (!cachedAccessories.find(accessory => accessory.UUID === uuid)) {
-                            var zoneAccessory = new Accessory(zoneName, uuid);
+                            var zoneAccessory = new Accessory(zoneName, uuid, Categories.AUDIO_RECEIVER);
                             var accessory = new YamahaZone(this.log, this.config, zoneName, yamaha, sysConfig, zoneId, zoneAccessory, name, inputs, controlAccessory);
                             accessory.getServices();
                             tvAccessories.push(zoneAccessory);
