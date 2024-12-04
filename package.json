@@ -25,14 +25,10 @@
     "node": "^18.20.4 || ^20.15.1 || ^22.0.0"
   },
   "dependencies": {
-    "bonjour": "^=3.5.0",
-    "core-util-is": "^1.0.1",
+    "bonjour": "^3.5.0",
     "debug": "^4.1.1",
-    "inherits": "^2.0.1",
-    "ip": "^=1.1.5",
+    "ip": "^2.0.1",
     "q": "^1.5.1",
-    "request": "^2.88.0",
-    "util": "^0.12.0",
     "yamaha-nodejs": "^0.9.1"
   },
   "devDependencies": {

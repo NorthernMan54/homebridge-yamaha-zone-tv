@@ -29,7 +29,7 @@
       "preset_num": true,
       "max_volume": 10,
       "manual_addresses": {
-        "Manual": "192.168.1.50"
+        "Manual": "192.168.1.25"
       }
     }
   ],
